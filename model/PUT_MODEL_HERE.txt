@@ -1,0 +1,27 @@
+Place your trained model weights file here.
+
+Expected filename: brain_tumor_resnet50.pth
+
+─────────────────────────────────────────────────────────────────────────────
+How to train or obtain the model
+─────────────────────────────────────────────────────────────────────────────
+
+Option A — Use the provided training notebook:
+  Open notebooks/train_resnet50.ipynb (or the equivalent .py script) and run it
+  against the Brain Tumor MRI Dataset (Kaggle). The saved .pth file goes here.
+
+Option B — Download a pre-trained checkpoint:
+  If a checkpoint is provided separately, rename or symlink it to:
+      model/brain_tumor_resnet50.pth
+
+─────────────────────────────────────────────────────────────────────────────
+Architecture expected
+─────────────────────────────────────────────────────────────────────────────
+
+  Base:    torchvision.models.resnet50(weights=None)
+  Head:    nn.Linear(2048, 4)          # 4 classes
+  Classes: Glioma | Meningioma | No Tumor | Pituitary Tumor
+  Input:   224×224 RGB, ImageNet normalisation
+
+The classifier.py module supports raw state_dicts as well as checkpoint dicts
+that contain a "model_state_dict" or "state_dict" key.
