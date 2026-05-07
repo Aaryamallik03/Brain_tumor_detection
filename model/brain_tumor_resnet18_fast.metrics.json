@@ -1,0 +1,33 @@
+{
+  "best_val_acc": 0.90812,
+  "classes": [
+    "glioma",
+    "meningioma",
+    "notumor",
+    "pituitary"
+  ],
+  "class_to_idx": {
+    "glioma": 0,
+    "meningioma": 1,
+    "notumor": 2,
+    "pituitary": 3
+  },
+  "epochs": 1,
+  "batch_size": 8,
+  "workers": 0,
+  "backbone": "resnet18",
+  "image_size": 160,
+  "fast_mode": true,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.3486,
+      "train_acc": 0.872,
+      "val_loss": 0.4289,
+      "val_acc": 0.9081,
+      "lr": 0.0001,
+      "backbone": "resnet18",
+      "image_size": 160
+    }
+  ]
+}
