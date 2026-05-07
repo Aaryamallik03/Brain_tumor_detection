@@ -26,6 +26,9 @@
   </header>
 
   <main class="main main--result">
+    <div style="margin-bottom: 1rem;">
+      <a href="/monitor" class="btn-back">View Monitoring Dashboard →</a>
+    </div>
 
     <div class="result-grid">
       <!-- Left: uploaded image -->
@@ -34,6 +37,12 @@
         <div class="result-image-wrap">
           <img src="{{ image_url }}" alt="Uploaded MRI scan" class="result-image" />
         </div>
+        {% if heatmap_url %}
+        <p class="card-label" style="margin-top: 1rem;">Suspected Tumor Region Highlight</p>
+        <div class="result-image-wrap">
+          <img src="{{ heatmap_url }}" alt="Tumor region highlight" class="result-image" />
+        </div>
+        {% endif %}
       </div>
 
       <!-- Right: prediction -->
@@ -52,6 +61,9 @@
             Tumor Detection: <strong>Negative</strong>
           {% endif %}
         </p>
+        {% if tumor_area_pct is not none %}
+        <p class="tumor-status">Estimated highlighted area: <strong>{{ tumor_area_pct }}%</strong></p>
+        {% endif %}
 
         <div class="probs-list">
           {% for p in all_probs %}
