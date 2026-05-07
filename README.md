@@ -1,1 +1,202 @@
-# Brain_tumor_detection
+# 🧠 Brain MRI Tumor Classifier
+
+A local web app (+ CLI) that classifies brain MRI scans into four categories using a
+ResNet-50 transfer-learning model built with PyTorch.
+
+> ⚠️ **Educational & Research Use Only.**
+> This tool is **not** a medical device and must **not** be used for clinical diagnosis,
+> treatment decisions, or any medical purpose whatsoever.
+> Always consult a qualified healthcare professional.
+
+---
+
+## Classes
+
+| Icon | Class | Description |
+|------|-------|-------------|
+| 🔴 | **Glioma** | Tumor arising from glial cells |
+| 🟠 | **Meningioma** | Tumor on the brain/spine membranes |
+| 🟢 | **No Tumor** | No tumor detected |
+| 🟣 | **Pituitary Tumor** | Tumor in the pituitary gland |
+
+---
+
+## Project Structure
+
+```
+brain_mri_classifier/
+├── app.py                  # Flask web app
+├── classifier.py           # Model loading + inference (import this)
+├── train.py                # Train ResNet-50 from dataset
+├── predict_cli.py          # Command-line inference tool
+├── generate_samples.py     # Creates synthetic test images
+├── requirements.txt
+├── model/
+│   └── PUT_MODEL_HERE.txt  # ← place your .pth file here
+├── sample_images/          # Created by generate_samples.py
+├── static/
+│   ├── css/style.css
+│   ├── js/upload.js
+│   └── uploads/            # Temporary uploaded images
+└── templates/
+    ├── index.html
+    └── result.html
+```
+
+---
+
+## Setup
+
+### 1. Clone / download this project
+
+```bash
+cd brain_mri_classifier
+```
+
+### 2. Create and activate a virtual environment (recommended)
+
+```bash
+python -m venv venv
+# Linux / macOS
+source venv/bin/activate
+# Windows
+venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+> For GPU support install the CUDA-compatible PyTorch build from https://pytorch.org
+
+### 4. Train your model (recommended)
+
+Download/extract the Kaggle dataset so the folder looks like:
+
+```
+Brain-Tumor-MRI-Dataset/
+├── Training/
+│   ├── glioma/
+│   ├── meningioma/
+│   ├── notumor/
+│   └── pituitary/
+└── Testing/
+    ├── glioma/
+    ├── meningioma/
+    ├── notumor/
+    └── pituitary/
+```
+
+Train and save weights:
+
+```bash
+python train.py --data-root path/to/Brain-Tumor-MRI-Dataset --epochs 12 --batch-size 16
+```
+
+Default output path:
+
+```
+model/brain_tumor_resnet50.pth
+```
+
+### 5. Add your model weights (alternative)
+
+Place your trained ResNet-50 checkpoint in the `model/` folder and rename it:
+
+```
+model/brain_tumor_resnet50.pth
+```
+
+See `model/PUT_MODEL_HERE.txt` for architecture details and training tips.
+
+**Training the model yourself:**
+- Dataset: [Brain Tumor MRI Dataset on Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
+- Use the provided training notebook / script (ResNet-50 fine-tuning, 4 classes)
+- Save the state dict with `torch.save(model.state_dict(), "brain_tumor_resnet50.pth")`
+
+---
+
+## Running the Web App
+
+```bash
+python app.py
+```
+
+Then open **http://localhost:5000** in your browser.
+
+- Upload a JPG/PNG/BMP/TIFF brain MRI image (≤ 16 MB)
+- Click **Classify Scan**
+- See the predicted class and probability breakdown
+
+---
+
+## Command-Line Usage
+
+```bash
+# Basic usage
+python predict_cli.py sample_images/glioma_sample.jpg
+
+# Specify a custom model path
+python predict_cli.py path/to/scan.jpg --model path/to/weights.pth
+```
+
+Example output:
+
+```
+🧠  Brain MRI Tumor Classifier
+────────────────────────────────────────
+  Model : model/brain_tumor_resnet50.pth
+  Image : sample_images/glioma_sample.jpg
+
+  Result     : 🔴  Glioma
+  Confidence : 94.2%
+  Info       : A tumor arising from glial cells in the brain or spine.
+
+  All class probabilities:
+    🔴  Glioma             ████████████████░░░░   94.2% ◀
+    🟠  Meningioma         ░░░░░░░░░░░░░░░░░░░░    3.1%
+    🟣  Pituitary Tumor    ░░░░░░░░░░░░░░░░░░░░    1.8%
+    🟢  No Tumor           ░░░░░░░░░░░░░░░░░░░░    0.9%
+```
+
+---
+
+## Generating Synthetic Test Images
+
+If you want to test the upload pipeline before you have real MRI data:
+
+```bash
+python generate_samples.py
+```
+
+This creates 4 simple synthetic images in `sample_images/`. They are **not real
+MRI scans** — just placeholder images to verify the app is working end-to-end.
+
+---
+
+## Using `classifier.py` as a Library
+
+```python
+from pathlib import Path
+from classifier import load_model, predict
+
+model, err = load_model(Path("model/brain_tumor_resnet50.pth"))
+if err:
+    print("Error:", err)
+else:
+    pred, conf, probs, err = predict(model, Path("scan.jpg"))
+    print(f"{pred}  ({conf:.1f}%)")
+```
+
+---
+
+## Disclaimer
+
+This software is provided for **educational and research purposes only**.
+
+- It has **not** been validated for clinical use.
+- It **must not** be used to diagnose, treat, or make decisions about any medical condition.
+- Predictions may be incorrect; MRI interpretation requires specialist training.
+- Always consult a qualified and licensed healthcare professional for medical advice.

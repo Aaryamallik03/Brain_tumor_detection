@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Result — Brain MRI Tumor Classifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div class="noise"></div>
+
+  <header class="site-header">
+    <div class="logo-wrap">
+      <svg class="logo-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 4C13 4 4 13 4 24s9 20 20 20 20-9 20-20S35 4 24 4z" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M14 24c0-5.5 4.5-10 10-10s10 4.5 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="24" cy="24" r="3" fill="currentColor"/>
+        <path d="M24 21v-7M17 27l-5 3M31 27l5 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text">NeuroScan<em>AI</em></span>
+    </div>
+    <div class="research-badge">Research &amp; Education Only</div>
+  </header>
+
+  <main class="main main--result">
+
+    <div class="result-grid">
+      <!-- Left: uploaded image -->
+      <div class="result-image-card">
+        <p class="card-label">Uploaded MRI Scan</p>
+        <div class="result-image-wrap">
+          <img src="{{ image_url }}" alt="Uploaded MRI scan" class="result-image" />
+        </div>
+      </div>
+
+      <!-- Right: prediction -->
+      <div class="result-info">
+        <p class="card-label">Classification Result</p>
+
+        <div class="prediction-badge" id="predBadge">
+          <span class="prediction-badge__label">Predicted Class</span>
+          <span class="prediction-badge__value">{{ prediction }}</span>
+          <span class="prediction-badge__conf">{{ confidence }}% confidence</span>
+        </div>
+        <p class="tumor-status">
+          {% if tumor_detected %}
+            Tumor Detection: <strong>Positive</strong>
+          {% else %}
+            Tumor Detection: <strong>Negative</strong>
+          {% endif %}
+        </p>
+
+        <div class="probs-list">
+          {% for p in all_probs %}
+          <div class="prob-row {% if p.label == prediction %}prob-row--active{% endif %}" style="--accent: {{ p.color }}">
+            <span class="prob-icon">{{ p.icon }}</span>
+            <span class="prob-label">{{ p.label }}</span>
+            <div class="prob-bar-wrap">
+              <div class="prob-bar" style="width: {{ p.prob }}%; background: {{ p.color }}"></div>
+            </div>
+            <span class="prob-pct">{{ p.prob }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <a href="/" class="btn-back">← Classify Another Scan</a>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>⚠️ <strong>Disclaimer:</strong> This tool is for <em>educational and research purposes only</em>. It is <strong>not</strong> a medical device and must not be used for clinical diagnosis, treatment decisions, or any medical purpose. Always consult a qualified healthcare professional.</p>
+  </footer>
+
+  <script>
+    // Animate bars on load
+    document.addEventListener("DOMContentLoaded", () => {
+      const bars = document.querySelectorAll(".prob-bar");
+      bars.forEach(b => {
+        const target = b.style.width;
+        b.style.width = "0%";
+        requestAnimationFrame(() => {
+          b.style.transition = "width 0.7s cubic-bezier(0.16, 1, 0.3, 1)";
+          b.style.width = target;
+        });
+      });
+    });
+  </script>
+</body>
+</html>
