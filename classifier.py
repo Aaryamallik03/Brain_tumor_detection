@@ -10,6 +10,7 @@ import logging
 import json
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -215,3 +216,58 @@ def predict(
 
     except Exception as exc:  # noqa: BLE001
         return None, None, None, f"Inference error: {exc}"
+
+
+def localize_tumor(
+    model: nn.Module,
+    image_path: Path,
+    output_path: Path,
+) -> tuple[Optional[float], Optional[str]]:
+    """
+    Create a lightweight tumor saliency overlay image.
+
+    Returns:
+        (tumor_area_pct, error_message)
+    """
+    image_path = Path(image_path)
+    output_path = Path(output_path)
+    if not image_path.exists():
+        return None, f"Image file not found: {image_path}"
+
+    try:
+        img = Image.open(image_path).convert("RGB")
+    except Exception as exc:  # noqa: BLE001
+        return None, f"Cannot open image: {exc}"
+
+    try:
+        device = next(model.parameters()).device
+        image_size = getattr(model, "_input_size", 224)
+        tensor = _transform_for_size(image_size)(img).unsqueeze(0).to(device)
+        tensor.requires_grad_(True)
+
+        model.zero_grad(set_to_none=True)
+        logits = model(tensor)
+        top_idx = int(torch.argmax(logits, dim=1).item())
+        score = logits[0, top_idx]
+        score.backward()
+
+        grad = tensor.grad.detach().abs()[0]  # [C, H, W]
+        heat = grad.mean(dim=0)               # [H, W]
+        heat = heat / (heat.max() + 1e-8)
+
+        mask = heat > 0.55
+        area_pct = float(mask.float().mean().item()) * 100.0
+
+        heat_img = transforms.ToPILImage()(heat.cpu()).convert("L")
+        heat_img = heat_img.resize(img.size)
+
+        red_overlay = Image.new("RGB", img.size, (255, 50, 50))
+        blended = Image.blend(img, red_overlay, alpha=0.35)
+        out = Image.composite(blended, img, heat_img)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        out.save(output_path)
+        return round(area_pct, 1), None
+
+    except Exception as exc:  # noqa: BLE001
+        return None, f"Localization error: {exc}"

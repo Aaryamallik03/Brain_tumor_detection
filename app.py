@@ -5,10 +5,15 @@ Educational / Research use only. NOT for medical diagnosis.
 
 import os
 import uuid
+from datetime import datetime
+import csv
+import io
+import sqlite3
+from collections import Counter
 from pathlib import Path
-from flask import Flask, request, render_template, redirect, url_for, flash
+from flask import Flask, request, render_template, redirect, url_for, flash, Response
 from werkzeug.utils import secure_filename
-from classifier import load_model, predict
+from classifier import load_model, predict, localize_tumor
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE_DIR      = Path(__file__).parent
@@ -19,6 +24,7 @@ MODEL_CANDIDATES = [
 ]
 ALLOWED_EXT   = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif"}
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
+DB_PATH = BASE_DIR / "monitoring.db"
 
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
@@ -29,8 +35,75 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 MODEL_PATH = next((p for p in MODEL_CANDIDATES if p.exists()), MODEL_CANDIDATES[0])
 
+
+def init_db() -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS predictions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                prediction TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                tumor_detected INTEGER NOT NULL,
+                tumor_area_pct REAL,
+                image_url TEXT NOT NULL,
+                heatmap_url TEXT
+            )
+            """
+        )
+        conn.commit()
+
+
+def insert_prediction(row: dict) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO predictions
+            (created_at, prediction, confidence, tumor_detected, tumor_area_pct, image_url, heatmap_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["time"],
+                row["prediction"],
+                row["confidence"],
+                1 if row["tumor_detected"] else 0,
+                row["tumor_area_pct"],
+                row["image_url"],
+                row["heatmap_url"],
+            ),
+        )
+        conn.commit()
+
+
+def recent_predictions(limit: int = 100) -> list[dict]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT created_at, prediction, confidence, tumor_detected, tumor_area_pct, image_url, heatmap_url
+            FROM predictions
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "time": r["created_at"],
+            "prediction": r["prediction"],
+            "confidence": round(float(r["confidence"]), 1),
+            "tumor_detected": bool(r["tumor_detected"]),
+            "tumor_area_pct": round(float(r["tumor_area_pct"]), 1) if r["tumor_area_pct"] is not None else None,
+            "image_url": r["image_url"],
+            "heatmap_url": r["heatmap_url"],
+        }
+        for r in rows
+    ]
+
 # Load model once at startup (graceful if missing)
 model, model_error = load_model(MODEL_PATH)
+init_db()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -71,15 +144,70 @@ def predict_route():
         flash(f"Prediction failed: {pred_error}", "error")
         return redirect(url_for("index"))
 
+    heatmap_name = f"{Path(unique_name).stem}_heatmap{ext}"
+    heatmap_path = UPLOAD_FOLDER / heatmap_name
+    area_pct, loc_error = localize_tumor(model, save_path, heatmap_path)
+    if loc_error:
+        area_pct = None
+
     image_url = url_for("static", filename=f"uploads/{unique_name}")
+    heatmap_url = url_for("static", filename=f"uploads/{heatmap_name}") if heatmap_path.exists() else None
     tumor_detected = prediction != "No Tumor"
+    row = {
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "prediction": prediction,
+        "confidence": confidence,
+        "tumor_detected": tumor_detected,
+        "tumor_area_pct": area_pct,
+        "image_url": image_url,
+        "heatmap_url": heatmap_url,
+    }
+    insert_prediction(row)
     return render_template(
         "result.html",
         image_url=image_url,
+        heatmap_url=heatmap_url,
         prediction=prediction,
         confidence=confidence,
         tumor_detected=tumor_detected,
+        tumor_area_pct=area_pct,
         all_probs=all_probs,
+    )
+
+
+@app.route("/monitor")
+def monitor():
+    predictions = recent_predictions(limit=200)
+    class_counts = Counter(p["prediction"] for p in predictions)
+    ordered_labels = ["Glioma", "Meningioma", "No Tumor", "Pituitary Tumor"]
+    chart_data = [{"label": label, "count": class_counts.get(label, 0)} for label in ordered_labels]
+    return render_template("monitor.html", predictions=predictions, chart_data=chart_data)
+
+
+@app.route("/monitor.csv")
+def monitor_csv():
+    predictions = recent_predictions(limit=2000)
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    writer.writerow(["time", "prediction", "detection", "confidence", "tumor_area_pct", "image_url", "heatmap_url"])
+    for p in predictions:
+        writer.writerow(
+            [
+                p["time"],
+                p["prediction"],
+                "Positive" if p["tumor_detected"] else "Negative",
+                p["confidence"],
+                p["tumor_area_pct"] if p["tumor_area_pct"] is not None else "",
+                p["image_url"],
+                p["heatmap_url"] or "",
+            ]
+        )
+
+    csv_data = stream.getvalue()
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=prediction_monitoring.csv"},
     )
 
 

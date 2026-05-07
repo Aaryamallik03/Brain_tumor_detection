@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitoring — Brain MRI Classifier</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <main class="main" style="max-width: 1100px;">
+    <h1 class="hero-title" style="font-size: 2rem;">Prediction Monitoring</h1>
+    <p class="hero-sub">Persistent monitoring history for recent classifications</p>
+    <p style="display:flex; gap:1rem; align-items:center;">
+      <a href="/" class="btn-back">← Back to Upload</a>
+      <a href="/monitor.csv" class="btn-back">Download CSV ↓</a>
+    </p>
+
+    <div class="upload-card" style="margin-bottom: 1rem;">
+      <p class="card-label">Per-class Prediction Counts</p>
+      {% set max_count = (chart_data | map(attribute='count') | max) if chart_data else 1 %}
+      {% for item in chart_data %}
+      <div style="display:grid; grid-template-columns: 180px 1fr 60px; gap:0.6rem; align-items:center; margin:0.45rem 0;">
+        <div>{{ item.label }}</div>
+        <div style="height:10px; background:#272e45; border-radius:999px; overflow:hidden;">
+          <div style="height:100%; width: {{ (item.count / (max_count if max_count > 0 else 1) * 100) | round(1) }}%; background:#7a6fe0;"></div>
+        </div>
+        <div style="text-align:right;">{{ item.count }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if not predictions %}
+      <div class="upload-card">
+        <p>No predictions yet. Classify at least one MRI scan first.</p>
+      </div>
+    {% else %}
+      <div class="upload-card" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:0.6rem;">Time</th>
+              <th style="text-align:left; padding:0.6rem;">Class</th>
+              <th style="text-align:left; padding:0.6rem;">Detection</th>
+              <th style="text-align:left; padding:0.6rem;">Confidence</th>
+              <th style="text-align:left; padding:0.6rem;">Area %</th>
+              <th style="text-align:left; padding:0.6rem;">Image</th>
+              <th style="text-align:left; padding:0.6rem;">Heatmap</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in predictions %}
+            <tr style="border-top: 1px solid #2b3148;">
+              <td style="padding:0.6rem;">{{ row.time }}</td>
+              <td style="padding:0.6rem;">{{ row.prediction }}</td>
+              <td style="padding:0.6rem;">{{ "Positive" if row.tumor_detected else "Negative" }}</td>
+              <td style="padding:0.6rem;">{{ row.confidence }}%</td>
+              <td style="padding:0.6rem;">{{ row.tumor_area_pct if row.tumor_area_pct is not none else "N/A" }}</td>
+              <td style="padding:0.6rem;"><a href="{{ row.image_url }}" target="_blank">View</a></td>
+              <td style="padding:0.6rem;">
+                {% if row.heatmap_url %}
+                  <a href="{{ row.heatmap_url }}" target="_blank">View</a>
+                {% else %}
+                  N/A
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>
