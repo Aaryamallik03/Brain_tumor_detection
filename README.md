@@ -38,9 +38,11 @@ brain_mri_classifier/
 │   ├── css/style.css
 │   ├── js/upload.js
 │   └── uploads/            # Temporary uploaded images
+├── monitoring.db           # SQLite monitoring history (created at runtime)
 └── templates/
     ├── index.html
-    └── result.html
+    ├── result.html
+    └── monitor.html
 ```
 
 ---
@@ -129,8 +131,37 @@ Then open **http://localhost:5000** in your browser.
 - Upload a JPG/PNG/BMP/TIFF brain MRI image (≤ 16 MB)
 - Click **Classify Scan**
 - See the predicted class and probability breakdown
+- See tumor-region highlight and monitoring dashboard at `/monitor`
+
+Health endpoint:
+
+```bash
+GET /health
+```
+
+Returns `200` when model is loaded, `503` when model is missing.
 
 ---
+
+## Monitoring & Persistence
+
+- Monitoring records are saved in `monitoring.db` (SQLite).
+- Dashboard: `http://localhost:5000/monitor`
+- CSV export: `http://localhost:5000/monitor.csv`
+- If deploying statelessly (e.g. free cloud dynos), SQLite data may reset on restart unless a persistent disk is attached.
+
+---
+
+## Deployment (Render)
+
+Use the following settings:
+
+- Build command: `pip install -r requirements.txt`
+- Start command: `gunicorn app:app`
+
+After deploy:
+- Check app health at `/health`
+- Ensure model file exists in `/model` (`brain_tumor_resnet18_fast.pth` or `brain_tumor_resnet50.pth`)
 
 ## Command-Line Usage
 

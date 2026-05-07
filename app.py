@@ -12,7 +12,6 @@ import sqlite3
 from collections import Counter
 from pathlib import Path
 from flask import Flask, request, render_template, redirect, url_for, flash, Response
-from werkzeug.utils import secure_filename
 from classifier import load_model, predict, localize_tumor
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -104,6 +103,11 @@ def recent_predictions(limit: int = 100) -> list[dict]:
 # Load model once at startup (graceful if missing)
 model, model_error = load_model(MODEL_PATH)
 init_db()
+if model is None:
+    app.logger.warning(
+        "Model not loaded on startup. Checked candidates: %s",
+        ", ".join(str(p) for p in MODEL_CANDIDATES),
+    )
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -209,6 +213,17 @@ def monitor_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment; filename=prediction_monitoring.csv"},
     )
+
+
+@app.route("/health")
+def health():
+    status = "ok" if model is not None else "degraded"
+    return {
+        "status": status,
+        "model_loaded": model is not None,
+        "model_path": str(MODEL_PATH),
+        "db_path": str(DB_PATH),
+    }, 200 if model is not None else 503
 
 
 @app.errorhandler(413)
