@@ -42,11 +42,34 @@
         </div>
 
         {% if heatmap_url %}
-        <!-- Heatmap -->
-        <p class="card-label" style="margin-top: 1.5rem;">Saliency Heatmap</p>
-        <div class="result-image-wrap">
-          <img src="{{ heatmap_url }}" alt="Saliency heatmap" class="result-image" />
+        <!-- Before / After slider -->
+        <p class="card-label" style="margin-top: 1.5rem;">
+          Original vs Saliency Heatmap
+          <span class="card-label-hint">← drag to compare →</span>
+        </p>
+        <div class="compare-wrap" id="compareWrap">
+          <!-- "before" layer — original, full width, sets the height -->
+          <div class="compare-before">
+            <img src="{{ image_url }}" alt="Original MRI" class="compare-img" />
+            <span class="compare-tag compare-tag--left">Original</span>
+          </div>
+          <!-- "after" layer — heatmap, clipped to left % -->
+          <div class="compare-after" id="compareAfter">
+            <img src="{{ heatmap_url }}" alt="Saliency heatmap" class="compare-img" />
+            <span class="compare-tag compare-tag--right">Heatmap</span>
+          </div>
+          <!-- drag handle -->
+          <div class="compare-handle" id="compareHandle">
+            <div class="compare-handle__line"></div>
+            <div class="compare-handle__circle">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 5l-5 7 5 7M16 5l5 7-5 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="compare-handle__line"></div>
+          </div>
         </div>
+
         <div class="heatmap-legend">
           <div class="heatmap-legend__item">
             <span class="heatmap-legend__box heatmap-legend__box--hot"></span>
@@ -71,7 +94,7 @@
           No suspicious region found in this scan
         </div>
         {% endif %}
-        <div class="result-image-wrap annotation-image-wrap">
+        <div class="result-image-wrap">
           <img src="{{ annotation_url }}" alt="Tumor area annotation" class="result-image" />
         </div>
         {% if tumor_area_pct is not none %}
@@ -125,6 +148,7 @@
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
+      // ── Probability bar animation ────────────────────────────────────────────
       document.querySelectorAll(".prob-bar").forEach(b => {
         const target = b.style.width;
         b.style.width = "0%";
@@ -133,6 +157,36 @@
           b.style.width = target;
         });
       });
+
+      // ── Before/After slider ──────────────────────────────────────────────────
+      const wrap   = document.getElementById("compareWrap");
+      const after  = document.getElementById("compareAfter");
+      const handle = document.getElementById("compareHandle");
+      if (!wrap || !after || !handle) return;
+
+      let dragging = false;
+
+      function setPos(clientX) {
+        const rect = wrap.getBoundingClientRect();
+        let pct = ((clientX - rect.left) / rect.width) * 100;
+        pct = Math.max(1, Math.min(99, pct));
+        after.style.width = pct + "%";
+        handle.style.left = pct + "%";
+      }
+
+      // Start at 50%
+      after.style.width = "50%";
+      handle.style.left = "50%";
+
+      handle.addEventListener("mousedown",  () => dragging = true);
+      handle.addEventListener("touchstart", () => dragging = true, { passive: true });
+      document.addEventListener("mousemove", e => { if (dragging) setPos(e.clientX); });
+      document.addEventListener("touchmove", e => { if (dragging) setPos(e.touches[0].clientX); }, { passive: true });
+      document.addEventListener("mouseup",  () => dragging = false);
+      document.addEventListener("touchend", () => dragging = false);
+
+      // Click anywhere on wrap to jump
+      wrap.addEventListener("click", e => setPos(e.clientX));
     });
   </script>
 </body>
