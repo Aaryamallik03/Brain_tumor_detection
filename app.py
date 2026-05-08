@@ -148,14 +148,19 @@ def predict_route():
         flash(f"Prediction failed: {pred_error}", "error")
         return redirect(url_for("index"))
 
-    heatmap_name = f"{Path(unique_name).stem}_heatmap{ext}"
-    heatmap_path = UPLOAD_FOLDER / heatmap_name
-    area_pct, loc_error = localize_tumor(model, save_path, heatmap_path)
+    stem = Path(unique_name).stem
+    heatmap_name    = f"{stem}_heatmap{ext}"
+    annotation_name = f"{stem}_annotation{ext}"
+    heatmap_path    = UPLOAD_FOLDER / heatmap_name
+    annotation_path = UPLOAD_FOLDER / annotation_name
+
+    area_pct, loc_error = localize_tumor(model, save_path, heatmap_path, annotation_path)
     if loc_error:
         area_pct = None
 
-    image_url = url_for("static", filename=f"uploads/{unique_name}")
-    heatmap_url = url_for("static", filename=f"uploads/{heatmap_name}") if heatmap_path.exists() else None
+    image_url      = url_for("static", filename=f"uploads/{unique_name}")
+    heatmap_url    = url_for("static", filename=f"uploads/{heatmap_name}") if heatmap_path.exists() else None
+    annotation_url = url_for("static", filename=f"uploads/{annotation_name}") if annotation_path.exists() else None
     tumor_detected = prediction != "No Tumor"
     row = {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -171,6 +176,7 @@ def predict_route():
         "result.html",
         image_url=image_url,
         heatmap_url=heatmap_url,
+        annotation_url=annotation_url,
         prediction=prediction,
         confidence=confidence,
         tumor_detected=tumor_detected,
