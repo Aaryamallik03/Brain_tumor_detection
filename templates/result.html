@@ -26,7 +26,7 @@
   </header>
 
   <main class="main main--result">
-    <div style="margin-bottom: 1.25rem;">
+    <div style="margin-bottom: 1rem;">
       <a href="/monitor" class="btn-back">View Monitoring Dashboard →</a>
     </div>
 
@@ -35,78 +35,48 @@
       <!-- ── Left column: images ── -->
       <div class="result-image-card">
 
-        {% if heatmap_url %}
-        <!-- Before/After Slider -->
-        <p class="card-label">Original vs Grad-CAM Heatmap
-          <span class="card-label-hint">← drag to compare →</span>
-        </p>
-        <div class="compare-wrap" id="compareWrap">
-          <div class="compare-before">
-            <img src="{{ image_url }}" alt="Original MRI scan" class="compare-img" id="imgBefore" />
-            <span class="compare-tag compare-tag--left">Original</span>
-          </div>
-          <div class="compare-after" id="compareAfter">
-            <img src="{{ heatmap_url }}" alt="Grad-CAM heatmap" class="compare-img" />
-            <span class="compare-tag compare-tag--right">Grad-CAM</span>
-          </div>
-          <div class="compare-handle" id="compareHandle">
-            <div class="compare-handle__line"></div>
-            <div class="compare-handle__circle">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 5l-5 7 5 7M16 5l5 7-5 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="compare-handle__line"></div>
-          </div>
-        </div>
-
-        <div class="heatmap-legend">
-          <div class="heatmap-legend__item">
-            <span class="heatmap-legend__box heatmap-legend__box--hot"></span>
-            <span>High activation — likely tumor region</span>
-          </div>
-          <div class="heatmap-legend__item">
-            <span class="heatmap-legend__box heatmap-legend__box--box"></span>
-            <span>Bounding box — peak region of interest</span>
-          </div>
-          <p class="heatmap-legend__note">Grad-CAM highlights where the model focused when classifying this scan. This is <strong>not</strong> a clinical tumor segmentation.</p>
-        </div>
-
-        {% else %}
-        <!-- No heatmap: show plain upload -->
+        <!-- Original scan -->
         <p class="card-label">Uploaded MRI Scan</p>
         <div class="result-image-wrap">
           <img src="{{ image_url }}" alt="Uploaded MRI scan" class="result-image" />
         </div>
+
+        {% if heatmap_url %}
+        <!-- Heatmap -->
+        <p class="card-label" style="margin-top: 1.5rem;">Saliency Heatmap</p>
+        <div class="result-image-wrap">
+          <img src="{{ heatmap_url }}" alt="Saliency heatmap" class="result-image" />
+        </div>
+        <div class="heatmap-legend">
+          <div class="heatmap-legend__item">
+            <span class="heatmap-legend__box heatmap-legend__box--hot"></span>
+            <span>Red tint — high gradient region (model attention)</span>
+          </div>
+          <p class="heatmap-legend__note">Shows where input pixel gradients were strongest when the model made its prediction.</p>
+        </div>
         {% endif %}
 
         {% if annotation_url %}
-        <!-- Annotation image -->
-        <p class="card-label" style="margin-top: 1.75rem;">
-          Tumor Region Annotation
-        </p>
-        <div class="annotation-wrap">
-          {% if tumor_detected %}
-          <div class="annotation-banner annotation-banner--positive">
-            <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
-              <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 3v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-            Tumor region detected — bounding box shown below
-          </div>
-          {% else %}
-          <div class="annotation-banner annotation-banner--negative">
-            No suspicious region found in this scan
-          </div>
-          {% endif %}
-          <div class="result-image-wrap">
-            <img src="{{ annotation_url }}" alt="Tumor region annotation" class="result-image" />
-          </div>
-          {% if tumor_area_pct is not none %}
-          <p class="annotation-stat">
-            Grad-CAM region coverage: <strong>{{ tumor_area_pct }}% of scan area</strong>
-          </p>
-          {% endif %}
+        <!-- Tumor area annotation -->
+        <p class="card-label" style="margin-top: 1.75rem;">Tumor Area Detection</p>
+        {% if tumor_detected %}
+        <div class="annotation-banner annotation-banner--positive">
+          <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" width="15" height="15" style="flex-shrink:0">
+            <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 4v4m0 3v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Tumor region detected — bounding box shown below
         </div>
+        {% else %}
+        <div class="annotation-banner annotation-banner--negative">
+          No suspicious region found in this scan
+        </div>
+        {% endif %}
+        <div class="result-image-wrap annotation-image-wrap">
+          <img src="{{ annotation_url }}" alt="Tumor area annotation" class="result-image" />
+        </div>
+        {% if tumor_area_pct is not none %}
+        <p class="annotation-stat">Highlighted area: <strong>{{ tumor_area_pct }}% of scan</strong></p>
+        {% endif %}
         {% endif %}
 
       </div>
@@ -154,7 +124,6 @@
   </footer>
 
   <script>
-    // ── Probability bar animation ──────────────────────────────────────────────
     document.addEventListener("DOMContentLoaded", () => {
       document.querySelectorAll(".prob-bar").forEach(b => {
         const target = b.style.width;
@@ -164,41 +133,6 @@
           b.style.width = target;
         });
       });
-
-      // ── Before/After slider ──────────────────────────────────────────────────
-      const wrap   = document.getElementById("compareWrap");
-      const after  = document.getElementById("compareAfter");
-      const handle = document.getElementById("compareHandle");
-      if (!wrap || !after || !handle) return;
-
-      let dragging = false;
-
-      function setPosition(clientX) {
-        const rect = wrap.getBoundingClientRect();
-        let pct = ((clientX - rect.left) / rect.width) * 100;
-        pct = Math.max(2, Math.min(98, pct));
-        after.style.width    = pct + "%";
-        handle.style.left    = pct + "%";
-      }
-
-      // Initialise at 50%
-      after.style.width  = "50%";
-      handle.style.left  = "50%";
-
-      handle.addEventListener("mousedown",  () => { dragging = true; });
-      handle.addEventListener("touchstart", () => { dragging = true; }, { passive: true });
-
-      document.addEventListener("mousemove", e => {
-        if (dragging) setPosition(e.clientX);
-      });
-      document.addEventListener("touchmove", e => {
-        if (dragging) setPosition(e.touches[0].clientX);
-      }, { passive: true });
-      document.addEventListener("mouseup",  () => { dragging = false; });
-      document.addEventListener("touchend", () => { dragging = false; });
-
-      // Also allow clicking anywhere on the wrap to jump
-      wrap.addEventListener("click", e => setPosition(e.clientX));
     });
   </script>
 </body>
