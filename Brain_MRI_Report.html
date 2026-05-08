@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brain MRI Tumor Classifier — Technical Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; line-height: 1.7; }
+  .page { max-width: 900px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); padding: 48px 56px 60px; }
+  h1 { font-size: 2rem; color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 12px; margin-bottom: 6px; }
+  .subtitle { color: #555; font-size: 0.95rem; margin-bottom: 32px; }
+  h2 { font-size: 1.25rem; color: #1a237e; margin-top: 40px; margin-bottom: 12px; border-left: 4px solid #1a237e; padding-left: 10px; }
+  h3 { font-size: 1.05rem; color: #333; margin-top: 22px; margin-bottom: 8px; }
+  p { margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0 20px; font-size: 0.92rem; }
+  th { background: #1a237e; color: #fff; padding: 9px 14px; text-align: left; }
+  td { padding: 8px 14px; border-bottom: 1px solid #e0e4ea; }
+  tr:nth-child(even) td { background: #f7f8fc; }
+  code, pre { font-family: 'Consolas', 'Courier New', monospace; background: #f0f2f7; border-radius: 4px; font-size: 0.88rem; }
+  pre { padding: 14px 18px; overflow-x: auto; margin: 12px 0 18px; border-left: 3px solid #1a237e; }
+  code { padding: 1px 5px; }
+  .badge { display: inline-block; background: #e8eaf6; color: #1a237e; border-radius: 4px; padding: 2px 10px; font-size: 0.82rem; font-weight: 600; margin-right: 6px; }
+  .warn { background: #fff8e1; border-left: 4px solid #f9a825; padding: 12px 16px; border-radius: 4px; margin: 20px 0; font-size: 0.9rem; color: #5d4037; }
+  .section-num { color: #aaa; font-weight: 400; margin-right: 6px; }
+  @media print {
+    body { background: #fff; }
+    .page { box-shadow: none; padding: 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Brain MRI Tumor Classifier</h1>
+  <p class="subtitle">Technical Report &nbsp;|&nbsp; Stack: Python · Flask · PyTorch · ResNet · SQLite &nbsp;|&nbsp; <a href="https://github.com/Aaryamallik03/Brain_tumor_detection">GitHub Repo</a></p>
+  <div class="warn">⚠️ This project is for <strong>educational and research purposes only</strong>. It is not a medical device and must not be used for clinical diagnosis.</div>
+
+  <!-- 1 -->
+  <h2><span class="section-num">1.</span> Dataset Overview</h2>
+  <p><strong>Dataset:</strong> Brain Tumor MRI Dataset &nbsp;<span class="badge">Kaggle</span></p>
+  <p><strong>Author:</strong> Masoud Nickparvar &nbsp;|&nbsp; <a href="https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset">View on Kaggle</a></p>
+  <p><strong>Format:</strong> JPEG images organized in class-named subfolders &nbsp;|&nbsp; <strong>Total Images: ~7,023</strong></p>
+  <table>
+    <tr><th>Split</th><th>Images</th><th>Percentage</th></tr>
+    <tr><td>Training</td><td>5,712</td><td>~81.3%</td></tr>
+    <tr><td>Testing</td><td>1,311</td><td>~18.7%</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>7,023</strong></td><td><strong>100%</strong></td></tr>
+  </table>
+
+  <!-- 2 -->
+  <h2><span class="section-num">2.</span> Tumor Types and Class Distribution</h2>
+  <h3>Training Set (5,712 images)</h3>
+  <table>
+    <tr><th>Class</th><th>Images</th><th>% of Training</th></tr>
+    <tr><td>🔴 Glioma</td><td>1,321</td><td>23.1%</td></tr>
+    <tr><td>🟠 Meningioma</td><td>1,339</td><td>23.4%</td></tr>
+    <tr><td>🟢 No Tumor</td><td>1,595</td><td>27.9%</td></tr>
+    <tr><td>🟣 Pituitary Tumor</td><td>1,457</td><td>25.5%</td></tr>
+  </table>
+  <h3>Testing Set (1,311 images)</h3>
+  <table>
+    <tr><th>Class</th><th>Images</th><th>% of Testing</th></tr>
+    <tr><td>🔴 Glioma</td><td>300</td><td>22.9%</td></tr>
+    <tr><td>🟠 Meningioma</td><td>306</td><td>23.3%</td></tr>
+    <tr><td>🟢 No Tumor</td><td>405</td><td>30.9%</td></tr>
+    <tr><td>🟣 Pituitary Tumor</td><td>300</td><td>22.9%</td></tr>
+  </table>
+  <h3>Class Descriptions</h3>
+  <table>
+    <tr><th>Class</th><th>Description</th></tr>
+    <tr><td><strong>Glioma</strong></td><td>Tumor arising from glial (support) cells in the brain or spinal cord. One of the most common and aggressive primary brain tumors.</td></tr>
+    <tr><td><strong>Meningioma</strong></td><td>Tumor forming on the meninges — membranes surrounding the brain and spinal cord. Usually slow-growing and often benign.</td></tr>
+    <tr><td><strong>Pituitary Tumor</strong></td><td>Tumor in the pituitary gland at the base of the brain. Most are non-cancerous but can disrupt hormonal function.</td></tr>
+    <tr><td><strong>No Tumor</strong></td><td>Healthy brain MRI scan with no detectable tumor. Included as the negative class for realistic classification.</td></tr>
+  </table>
+
+  <!-- 3 -->
+  <h2><span class="section-num">3.</span> Model Architecture</h2>
+  <h3>Backbone: ResNet-18 (Fast/Deployed) / ResNet-50 (Full Training)</h3>
+  <p><strong>ResNet</strong> (Residual Network) was introduced by Microsoft Research in 2015. Its key innovation is the <strong>residual (skip) connection</strong> — a shortcut that lets gradients flow directly through layers during backpropagation, solving the vanishing gradient problem in very deep networks.</p>
+  <pre>Input → [Conv Block] ──→ [+ skip] → [Conv Block] ──→ [+ skip] → ... → FC Layer → Output
+               ↑_________________________|       ↑_________________________|
+                    Residual Connection               Residual Connection</pre>
+  <h3>ResNet-18 vs ResNet-50</h3>
+  <table>
+    <tr><th>Property</th><th>ResNet-18</th><th>ResNet-50</th></tr>
+    <tr><td>Total Layers</td><td>18</td><td>50</td></tr>
+    <tr><td>Parameters</td><td>~11.7 million</td><td>~25.6 million</td></tr>
+    <tr><td>FC Input Size</td><td>512</td><td>2048</td></tr>
+    <tr><td>Speed</td><td>Fast — CPU friendly</td><td>Slower — GPU preferred</td></tr>
+    <tr><td>Used in this project</td><td>Default deployed model</td><td>Full training mode</td></tr>
+  </table>
+  <h3>How ResNet is Used Here</h3>
+  <p><strong>Step 1 — Load pretrained weights:</strong> The backbone is initialized with ImageNet weights (trained on 1.2 million images, 1,000 classes).</p>
+  <p><strong>Step 2 — Replace the final layer:</strong> The original 1,000-class output head is swapped for a new 4-class layer:</p>
+  <pre>in_features = model.fc.in_features   # 512 (ResNet-18) or 2048 (ResNet-50)
+model.fc = nn.Linear(in_features, 4) # 4 output neurons = 4 tumor classes</pre>
+  <p><strong>Step 3 — Fine-tune end-to-end:</strong> All layers are trained on the MRI dataset. The network adapts its feature detectors from general image patterns to MRI-specific anatomy.</p>
+  <p><strong>Step 4 — Auto-detect at inference:</strong> The app inspects the <code>fc.weight</code> shape from the saved <code>.pth</code> file — if it's [4, 512] it loads ResNet-18; if [4, 2048] it loads ResNet-50. No manual config needed.</p>
+
+  <!-- 4 -->
+  <h2><span class="section-num">4.</span> Preprocessing Pipeline</h2>
+  <p>Applied to every image before the model sees it — both during training and inference.</p>
+  <table>
+    <tr><th>Step</th><th>Operation</th><th>Detail</th></tr>
+    <tr><td>1</td><td>Resize</td><td>224×224 px (or 160×160 in fast mode)</td></tr>
+    <tr><td>2</td><td>Convert to Tensor</td><td>Pixel values scaled from [0, 255] → [0.0, 1.0]</td></tr>
+    <tr><td>3</td><td>Normalize</td><td>Per-channel normalization using ImageNet statistics</td></tr>
+  </table>
+  <h3>ImageNet Normalization Values</h3>
+  <pre>Mean : [0.485, 0.456, 0.406]   # R, G, B channels
+Std  : [0.229, 0.224, 0.225]   # R, G, B channels</pre>
+  <p><strong>Why ImageNet normalization?</strong> The backbone was pretrained using these statistics. Using the same values at fine-tuning and inference ensures activations are in the same numerical range the network learned from, improving convergence and accuracy.</p>
+  <h3>Upload Handling</h3>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Color conversion</td><td>All images converted to RGB (handles grayscale and RGBA)</td></tr>
+    <tr><td>Supported formats</td><td>JPG, PNG, BMP, TIFF</td></tr>
+    <tr><td>Max file size</td><td>16 MB</td></tr>
+    <tr><td>Filename handling</td><td>UUID-based filenames to prevent collisions</td></tr>
+  </table>
+
+  <!-- 5 -->
+  <h2><span class="section-num">5.</span> Data Augmentation</h2>
+  <p>Applied <strong>only during training</strong>, not at inference. Artificially increases dataset diversity to reduce overfitting.</p>
+  <table>
+    <tr><th>Technique</th><th>Parameters</th><th>Purpose</th></tr>
+    <tr><td>Random Horizontal Flip</td><td>p = 0.5</td><td>Brain anatomy is roughly symmetric; flip doubles effective data</td></tr>
+    <tr><td>Random Rotation</td><td>±10 degrees</td><td>Simulates slight head tilt variation in real scans</td></tr>
+  </table>
+  <pre>transforms.RandomHorizontalFlip()
+transforms.RandomRotation(10)</pre>
+  <p><strong>Why no color jitter or brightness shifts?</strong> MRI pixel intensity carries diagnostic meaning. Aggressive color augmentation would distort clinically relevant features and corrupt the training signal.</p>
+
+  <!-- 6 -->
+  <h2><span class="section-num">6.</span> Training Configuration</h2>
+  <table>
+    <tr><th>Parameter</th><th>Default</th><th>Fast Mode</th></tr>
+    <tr><td>Backbone</td><td>ResNet-50</td><td>ResNet-18</td></tr>
+    <tr><td>Image size</td><td>224 × 224 px</td><td>160 × 160 px</td></tr>
+    <tr><td>Epochs</td><td>12</td><td>12</td></tr>
+    <tr><td>Batch size</td><td>16</td><td>8</td></tr>
+    <tr><td>Learning rate</td><td>1e-4</td><td>1e-4</td></tr>
+    <tr><td>Optimizer</td><td>Adam</td><td>Adam</td></tr>
+    <tr><td>Loss function</td><td>CrossEntropyLoss</td><td>CrossEntropyLoss</td></tr>
+    <tr><td>LR Scheduler</td><td>ReduceLROnPlateau (factor=0.5, patience=2)</td><td>Same</td></tr>
+    <tr><td>Best model saving</td><td>Yes — highest val accuracy checkpoint saved</td><td>Yes</td></tr>
+  </table>
+  <h3>Optimizer — Adam</h3>
+  <p>Adam (Adaptive Moment Estimation) adapts the learning rate per parameter using first and second moment estimates. Well-suited for transfer learning because different layers may need different effective update magnitudes.</p>
+  <h3>Scheduler — ReduceLROnPlateau</h3>
+  <p>Monitors validation accuracy after each epoch. If accuracy does not improve for 2 consecutive epochs, the learning rate is halved. Prevents overshooting optimal weights late in training.</p>
+  <h3>Loss — CrossEntropyLoss</h3>
+  <p>Standard multi-class classification loss combining log-softmax and negative log-likelihood. Penalizes confident wrong predictions more heavily than uncertain ones.</p>
+
+  <!-- 7 -->
+  <h2><span class="section-num">7.</span> Inference Pipeline</h2>
+  <p>When a user uploads an MRI scan:</p>
+  <table>
+    <tr><th>Step</th><th>Action</th></tr>
+    <tr><td>1</td><td>Image loaded and converted to RGB</td></tr>
+    <tr><td>2</td><td>Preprocessing applied: resize → tensor → normalize</td></tr>
+    <tr><td>3</td><td>Forward pass through ResNet → 4 logits produced</td></tr>
+    <tr><td>4</td><td>Softmax converts logits to probabilities (sum = 100%)</td></tr>
+    <tr><td>5</td><td>Argmax selects predicted class</td></tr>
+    <tr><td>6</td><td>Confidence reported as highest probability %</td></tr>
+    <tr><td>7</td><td>Gradient saliency computed via backward pass</td></tr>
+    <tr><td>8</td><td>Three visualizations generated (heatmap, orange spot, annotation)</td></tr>
+    <tr><td>9</td><td>Result stored in SQLite monitoring database</td></tr>
+  </table>
+
+  <!-- 8 -->
+  <h2><span class="section-num">8.</span> Visualization Methods</h2>
+  <h3>Gradient Saliency — Red Heatmap</h3>
+  <p>A backpropagation-based method:</p>
+  <pre>heat = |∂(top class score) / ∂(input pixel)|  averaged over color channels, normalized to [0,1]</pre>
+  <p>High gradient pixels = regions that most influenced the prediction. Overlaid as a red tint on the original MRI.</p>
+  <h3>Orange Tumor Spot Overlay</h3>
+  <p>Built on the same gradient map with a warm colormap:</p>
+  <table>
+    <tr><th>Property</th><th>Value</th></tr>
+    <tr><td>Activation threshold</td><td>Heat &gt; 0.30 (smooth ramp to 0.60)</td></tr>
+    <tr><td>Max blend strength</td><td>78% at peak heat</td></tr>
+    <tr><td>Color at edges</td><td>Orange (255, 140, 0)</td></tr>
+    <tr><td>Color at peak</td><td>Yellow (255, 220, 0)</td></tr>
+    <tr><td>Edge softness</td><td>Gamma curve α^1.5 for smooth falloff</td></tr>
+  </table>
+  <h3>Bounding Box Annotation</h3>
+  <p>Saliency mask thresholded at 0.55 → bounding box fitted to active rows/columns → dashed red box with L-shaped corner ticks, red banner "TUMOR REGION DETECTED", and coordinate readout.</p>
+
+  <!-- 9 -->
+  <h2><span class="section-num">9.</span> Web Application Stack</h2>
+  <table>
+    <tr><th>Component</th><th>Technology</th></tr>
+    <tr><td>Web framework</td><td>Flask 2.3+</td></tr>
+    <tr><td>Model inference</td><td>PyTorch 2.0+, torchvision</td></tr>
+    <tr><td>Image processing</td><td>Pillow, NumPy</td></tr>
+    <tr><td>Database</td><td>SQLite (built-in sqlite3)</td></tr>
+    <tr><td>Production server</td><td>Gunicorn</td></tr>
+    <tr><td>Frontend</td><td>HTML / CSS / Vanilla JavaScript</td></tr>
+  </table>
+
+  <!-- 10 -->
+  <h2><span class="section-num">10.</span> Limitations</h2>
+  <ul style="padding-left:20px;line-height:2">
+    <li>Trained on a curated Kaggle dataset — real-world MRI scans vary in resolution, contrast, and acquisition protocol</li>
+    <li>Gradient saliency is an approximation — shows where the model is sensitive, not a true anatomical segmentation</li>
+    <li>No clinical validation has been performed</li>
+    <li>For educational and research use only — not a medical device</li>
+  </ul>
+
+  <hr style="margin:40px 0;border:none;border-top:1px solid #ddd"/>
+  <p style="color:#888;font-size:0.85rem;text-align:center">
+    Report generated from source code analysis &nbsp;|&nbsp;
+    <a href="https://github.com/Aaryamallik03/Brain_tumor_detection">github.com/Aaryamallik03/Brain_tumor_detection</a>
+  </p>
+
+</div>
+</body>
+</html>
