@@ -41,24 +41,21 @@
           <img src="{{ image_url }}" alt="Uploaded MRI scan" class="result-image" />
         </div>
 
-        {% if heatmap_url %}
-        <!-- Before / After slider -->
+        {% if tumor_spot_url %}
+        <!-- Slider: Original vs Orange Tumor Spot -->
         <p class="card-label" style="margin-top: 1.5rem;">
-          Original vs Saliency Heatmap
+          Tumor Region Overlay
           <span class="card-label-hint">← drag to compare →</span>
         </p>
         <div class="compare-wrap" id="compareWrap">
-          <!-- "before" layer — original, full width, sets the height -->
           <div class="compare-before">
             <img src="{{ image_url }}" alt="Original MRI" class="compare-img" />
             <span class="compare-tag compare-tag--left">Original</span>
           </div>
-          <!-- "after" layer — heatmap, clipped to left % -->
           <div class="compare-after" id="compareAfter">
-            <img src="{{ heatmap_url }}" alt="Saliency heatmap" class="compare-img" />
-            <span class="compare-tag compare-tag--right">Heatmap</span>
+            <img src="{{ tumor_spot_url }}" alt="Tumor region" class="compare-img" />
+            <span class="compare-tag compare-tag--right">Tumor Region</span>
           </div>
-          <!-- drag handle -->
           <div class="compare-handle" id="compareHandle">
             <div class="compare-handle__line"></div>
             <div class="compare-handle__circle">
@@ -69,13 +66,27 @@
             <div class="compare-handle__line"></div>
           </div>
         </div>
+        <div class="heatmap-legend">
+          <div class="heatmap-legend__item">
+            <span class="heatmap-legend__box heatmap-legend__box--spot"></span>
+            <span>Orange/yellow glow — suspected tumor region</span>
+          </div>
+          <p class="heatmap-legend__note">Drag the handle to compare the clean scan with the tumor region highlighted in orange.</p>
+        </div>
+        {% endif %}
 
+        {% if heatmap_url %}
+        <!-- Saliency heatmap (unchanged from original) -->
+        <p class="card-label" style="margin-top: 1.5rem;">Saliency Heatmap</p>
+        <div class="result-image-wrap">
+          <img src="{{ heatmap_url }}" alt="Saliency heatmap" class="result-image" />
+        </div>
         <div class="heatmap-legend">
           <div class="heatmap-legend__item">
             <span class="heatmap-legend__box heatmap-legend__box--hot"></span>
             <span>Red tint — high gradient region (model attention)</span>
           </div>
-          <p class="heatmap-legend__note">Shows where input pixel gradients were strongest when the model made its prediction.</p>
+          <p class="heatmap-legend__note">Shows where input pixel gradients were strongest during prediction.</p>
         </div>
         {% endif %}
 
@@ -174,7 +185,6 @@
         handle.style.left = pct + "%";
       }
 
-      // Start at 50%
       after.style.width = "50%";
       handle.style.left = "50%";
 
@@ -184,8 +194,6 @@
       document.addEventListener("touchmove", e => { if (dragging) setPos(e.touches[0].clientX); }, { passive: true });
       document.addEventListener("mouseup",  () => dragging = false);
       document.addEventListener("touchend", () => dragging = false);
-
-      // Click anywhere on wrap to jump
       wrap.addEventListener("click", e => setPos(e.clientX));
     });
   </script>

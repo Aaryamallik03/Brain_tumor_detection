@@ -149,19 +149,24 @@ def predict_route():
         return redirect(url_for("index"))
 
     stem = Path(unique_name).stem
-    heatmap_name    = f"{stem}_heatmap{ext}"
-    annotation_name = f"{stem}_annotation{ext}"
-    heatmap_path    = UPLOAD_FOLDER / heatmap_name
-    annotation_path = UPLOAD_FOLDER / annotation_name
+    heatmap_name     = f"{stem}_heatmap{ext}"
+    annotation_name  = f"{stem}_annotation{ext}"
+    tumor_spot_name  = f"{stem}_spot{ext}"
+    heatmap_path     = UPLOAD_FOLDER / heatmap_name
+    annotation_path  = UPLOAD_FOLDER / annotation_name
+    tumor_spot_path  = UPLOAD_FOLDER / tumor_spot_name
 
-    area_pct, loc_error = localize_tumor(model, save_path, heatmap_path, annotation_path)
+    area_pct, loc_error = localize_tumor(
+        model, save_path, heatmap_path, annotation_path, tumor_spot_path
+    )
     if loc_error:
         area_pct = None
 
-    image_url      = url_for("static", filename=f"uploads/{unique_name}")
-    heatmap_url    = url_for("static", filename=f"uploads/{heatmap_name}") if heatmap_path.exists() else None
-    annotation_url = url_for("static", filename=f"uploads/{annotation_name}") if annotation_path.exists() else None
-    tumor_detected = prediction != "No Tumor"
+    image_url       = url_for("static", filename=f"uploads/{unique_name}")
+    heatmap_url     = url_for("static", filename=f"uploads/{heatmap_name}") if heatmap_path.exists() else None
+    annotation_url  = url_for("static", filename=f"uploads/{annotation_name}") if annotation_path.exists() else None
+    tumor_spot_url  = url_for("static", filename=f"uploads/{tumor_spot_name}") if tumor_spot_path.exists() else None
+    tumor_detected  = prediction != "No Tumor"
     row = {
         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "prediction": prediction,
@@ -177,6 +182,7 @@ def predict_route():
         image_url=image_url,
         heatmap_url=heatmap_url,
         annotation_url=annotation_url,
+        tumor_spot_url=tumor_spot_url,
         prediction=prediction,
         confidence=confidence,
         tumor_detected=tumor_detected,
