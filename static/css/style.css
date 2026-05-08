@@ -345,6 +345,49 @@ body {
 }
 .btn-back:hover { gap: 0.65rem; }
 
+/* ── Heatmap legend ────────────────────────────────────────────────────────── */
+.heatmap-legend {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.heatmap-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+
+.heatmap-legend__box {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.heatmap-legend__box--hot {
+  background: linear-gradient(90deg, #ff5030, #ff9020);
+}
+
+.heatmap-legend__box--box {
+  background: transparent;
+  border: 2px solid #ff5030;
+}
+
+.heatmap-legend__note {
+  margin-top: 0.5rem;
+  font-size: 0.73rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .site-footer {
   border-top: 1px solid var(--border);

@@ -38,9 +38,20 @@
           <img src="{{ image_url }}" alt="Uploaded MRI scan" class="result-image" />
         </div>
         {% if heatmap_url %}
-        <p class="card-label" style="margin-top: 1rem;">Suspected Tumor Region Highlight</p>
+        <p class="card-label" style="margin-top: 1.5rem;">Grad-CAM Tumor Region Map</p>
         <div class="result-image-wrap">
-          <img src="{{ heatmap_url }}" alt="Tumor region highlight" class="result-image" />
+          <img src="{{ heatmap_url }}" alt="Grad-CAM tumor region map" class="result-image" />
+        </div>
+        <div class="heatmap-legend">
+          <div class="heatmap-legend__item">
+            <span class="heatmap-legend__box heatmap-legend__box--hot"></span>
+            <span>High activation (likely tumor region)</span>
+          </div>
+          <div class="heatmap-legend__item">
+            <span class="heatmap-legend__box heatmap-legend__box--box"></span>
+            <span>Bounding box — detected region of interest</span>
+          </div>
+          <p class="heatmap-legend__note">Grad-CAM highlights where the model focused when classifying this scan. The bounding box encloses the highest-activation area. This is <strong>not</strong> a clinical tumor segmentation.</p>
         </div>
         {% endif %}
       </div>
@@ -62,7 +73,7 @@
           {% endif %}
         </p>
         {% if tumor_area_pct is not none %}
-        <p class="tumor-status">Estimated highlighted area: <strong>{{ tumor_area_pct }}%</strong></p>
+        <p class="tumor-status">Grad-CAM region coverage: <strong>{{ tumor_area_pct }}% of scan</strong></p>
         {% endif %}
 
         <div class="probs-list">

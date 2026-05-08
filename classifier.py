@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,11 @@ def localize_tumor(
     output_path: Path,
 ) -> tuple[Optional[float], Optional[str]]:
     """
-    Create a lightweight tumor saliency overlay image.
+    Grad-CAM tumor region visualization with bounding box overlay.
+
+    Uses Gradient-weighted Class Activation Mapping (Grad-CAM) on the last
+    convolutional block of ResNet to produce a class-discriminative heatmap.
+    A bounding box is drawn around the detected high-activation region.
 
     Returns:
         (tumor_area_pct, error_message)
@@ -243,27 +248,81 @@ def localize_tumor(
         device = next(model.parameters()).device
         image_size = getattr(model, "_input_size", 224)
         tensor = _transform_for_size(image_size)(img).unsqueeze(0).to(device)
-        tensor.requires_grad_(True)
+
+        # ── Grad-CAM hooks on the last conv block ────────────────────────────
+        activations: dict = {}
+        gradients: dict = {}
+
+        def _fwd_hook(module, inp, out):
+            activations["layer4"] = out.detach()
+
+        def _bwd_hook(module, grad_in, grad_out):
+            gradients["layer4"] = grad_out[0].detach()
+
+        hook_fwd = model.layer4.register_forward_hook(_fwd_hook)
+        hook_bwd = model.layer4.register_full_backward_hook(_bwd_hook)
 
         model.zero_grad(set_to_none=True)
         logits = model(tensor)
         top_idx = int(torch.argmax(logits, dim=1).item())
-        score = logits[0, top_idx]
-        score.backward()
+        logits[0, top_idx].backward()
 
-        grad = tensor.grad.detach().abs()[0]  # [C, H, W]
-        heat = grad.mean(dim=0)               # [H, W]
-        heat = heat / (heat.max() + 1e-8)
+        hook_fwd.remove()
+        hook_bwd.remove()
 
-        mask = heat > 0.55
-        area_pct = float(mask.float().mean().item()) * 100.0
+        # ── Compute Grad-CAM heatmap ──────────────────────────────────────────
+        grads = gradients["layer4"][0]       # [C, H, W]
+        acts  = activations["layer4"][0]     # [C, H, W]
+        weights = grads.mean(dim=(1, 2))     # [C]  global average pool
+        cam = torch.relu((weights[:, None, None] * acts).sum(dim=0))  # [H, W]
+        cam = cam / (cam.max() + 1e-8)
 
-        heat_img = transforms.ToPILImage()(heat.cpu()).convert("L")
-        heat_img = heat_img.resize(img.size)
+        # Upsample to original image size
+        cam_pil = transforms.ToPILImage()(cam.cpu()).resize(img.size, Image.BILINEAR)
+        cam_np  = np.array(cam_pil).astype(np.float32) / 255.0  # 0–1, shape HxW
 
-        red_overlay = Image.new("RGB", img.size, (255, 50, 50))
-        blended = Image.blend(img, red_overlay, alpha=0.35)
-        out = Image.composite(blended, img, heat_img)
+        # ── Compute tumor area ────────────────────────────────────────────────
+        threshold = 0.40
+        mask = cam_np > threshold
+        area_pct = float(mask.mean()) * 100.0
+
+        # ── Build heat-tinted overlay (red-hot colormap) ──────────────────────
+        r = np.clip(cam_np * 2.0,       0.0, 1.0)
+        g = np.clip(cam_np * 2.0 - 0.7, 0.0, 1.0)
+        b = np.zeros_like(cam_np)
+        heat_rgb = (np.stack([r, g, b], axis=2) * 255).astype(np.uint8)
+        heat_img = Image.fromarray(heat_rgb, mode="RGB")
+
+        # Alpha-blend heatmap onto original (stronger where cam is hotter)
+        orig_np  = np.array(img).astype(np.float32)
+        heat_f   = np.array(heat_img).astype(np.float32)
+        alpha    = (cam_np[:, :, np.newaxis] * 0.65).clip(0.0, 0.65)
+        blended  = (orig_np * (1.0 - alpha) + heat_f * alpha).clip(0, 255).astype(np.uint8)
+        out      = Image.fromarray(blended)
+
+        # ── Draw bounding box around the peak activation region ───────────────
+        if mask.any():
+            rows = np.any(mask, axis=1)
+            cols = np.any(mask, axis=0)
+            rmin, rmax = int(np.where(rows)[0][[0, -1]].tolist()[0]), int(np.where(rows)[0][[0, -1]].tolist()[1])
+            cmin, cmax = int(np.where(cols)[0][[0, -1]].tolist()[0]), int(np.where(cols)[0][[0, -1]].tolist()[1])
+
+            lw = max(2, min(img.width, img.height) // 120)
+            draw = ImageDraw.Draw(out)
+
+            # Outer dark shadow for contrast
+            draw.rectangle([cmin - 1, rmin - 1, cmax + 1, rmax + 1],
+                           outline=(0, 0, 0), width=lw + 2)
+            # Main bright box
+            draw.rectangle([cmin, rmin, cmax, rmax],
+                           outline=(255, 80, 60), width=lw)
+
+            # Label tag
+            label = "Tumor Region"
+            tag_x, tag_y = cmin, max(0, rmin - 22)
+            draw.rectangle([tag_x, tag_y, tag_x + 120, tag_y + 20],
+                           fill=(255, 80, 60))
+            draw.text((tag_x + 4, tag_y + 3), label, fill=(255, 255, 255))
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         out.save(output_path)
