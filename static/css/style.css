@@ -519,6 +519,10 @@ body {
   background: linear-gradient(90deg, #ff5030, #ff9020);
 }
 
+.heatmap-legend__box--spot {
+  background: linear-gradient(90deg, #ff8c00, #ffdc00);
+}
+
 .heatmap-legend__box--box {
   background: transparent;
   border: 2px solid #ff5030;

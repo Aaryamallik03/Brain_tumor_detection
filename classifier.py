@@ -224,11 +224,13 @@ def localize_tumor(
     image_path: Path,
     heatmap_path: Path,
     annotation_path: Optional[Path] = None,
+    tumor_spot_path: Optional[Path] = None,
 ) -> tuple[Optional[float], Optional[str]]:
     """
-    Generate two visualizations:
-      - heatmap_path   : Original gradient saliency red overlay (unchanged from v1).
+    Generate three visualizations:
+      - heatmap_path   : Original gradient saliency red overlay (unchanged).
       - annotation_path: Clean original MRI with bounding box and "Tumor Region" label.
+      - tumor_spot_path: Original MRI with tumor region shown as a glowing orange/yellow spot.
 
     Returns:
         (tumor_area_pct, error_message)
@@ -237,6 +239,8 @@ def localize_tumor(
     heatmap_path = Path(heatmap_path)
     if annotation_path is not None:
         annotation_path = Path(annotation_path)
+    if tumor_spot_path is not None:
+        tumor_spot_path = Path(tumor_spot_path)
 
     if not image_path.exists():
         return None, f"Image file not found: {image_path}"
@@ -276,6 +280,33 @@ def localize_tumor(
 
         heatmap_path.parent.mkdir(parents=True, exist_ok=True)
         heatmap_out.save(heatmap_path)
+
+        # ── IMAGE: Orange tumor-spot overlay ───────────────────────────────────
+        if tumor_spot_path is not None:
+            # Upsample heat to full image size as float array
+            heat_full_pil = transforms.ToPILImage()(heat.cpu()).convert("L").resize(img.size, Image.BILINEAR)
+            heat_full = np.array(heat_full_pil).astype(np.float32) / 255.0  # 0–1
+
+            # Smooth mask: only activate above threshold, fade in gradually
+            lo, hi = 0.30, 0.60
+            alpha_spot = np.clip((heat_full - lo) / (hi - lo), 0.0, 1.0)  # 0→1 ramp
+            alpha_spot = alpha_spot ** 1.5  # slight gamma so edges are softer
+
+            # Warm orange→yellow colormap driven by heat intensity
+            # orange: (255,140,0)  →  yellow: (255,220,0)
+            r_ch = np.ones_like(heat_full) * 255.0
+            g_ch = 140.0 + heat_full * 80.0   # 140 → 220
+            b_ch = np.zeros_like(heat_full)
+            spot_rgb = np.stack([r_ch, g_ch, b_ch], axis=2).clip(0, 255).astype(np.uint8)
+
+            orig_np  = np.array(img).astype(np.float32)
+            spot_f   = spot_rgb.astype(np.float32)
+            a3       = alpha_spot[:, :, np.newaxis] * 0.78  # max blend strength
+            spot_out = (orig_np * (1.0 - a3) + spot_f * a3).clip(0, 255).astype(np.uint8)
+            spot_img = Image.fromarray(spot_out)
+
+            tumor_spot_path.parent.mkdir(parents=True, exist_ok=True)
+            spot_img.save(tumor_spot_path)
 
         # ── Bounding box from the saliency mask for annotation ─────────────────
         bbox = None
