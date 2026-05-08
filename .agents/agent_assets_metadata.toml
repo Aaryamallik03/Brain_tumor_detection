@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "wnad9tXY5TR1Zf0v2us1d"
+uri = "file://Brain_MRI_Tumor_Classifier_Report.md"
+type = "text"
+title = "Brain MRI Tumor Classifier — Technical Report"
