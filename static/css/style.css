@@ -523,6 +523,23 @@ body {
   background: linear-gradient(90deg, #ff8c00, #ffdc00);
 }
 
+.btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 1.1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: #1a237e;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-pdf:hover {
+  background: #283593;
+  transform: translateY(-1px);
+}
+
 .heatmap-legend__box--box {
   background: transparent;
   border: 2px solid #ff5030;

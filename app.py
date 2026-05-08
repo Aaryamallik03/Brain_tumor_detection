@@ -11,8 +11,18 @@ import io
 import sqlite3
 from collections import Counter
 from pathlib import Path
-from flask import Flask, request, render_template, redirect, url_for, flash, Response
+from flask import Flask, request, render_template, redirect, url_for, flash, Response, session
 from classifier import load_model, predict, localize_tumor
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    HRFlowable, Image as RLImage,
+)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 # ── Config ────────────────────────────────────────────────────────────────────
 BASE_DIR      = Path(__file__).parent
@@ -177,6 +187,18 @@ def predict_route():
         "heatmap_url": heatmap_url,
     }
     insert_prediction(row)
+
+    session["last_result"] = {
+        "stem": stem,
+        "ext": ext,
+        "prediction": prediction,
+        "confidence": confidence,
+        "tumor_detected": tumor_detected,
+        "tumor_area_pct": area_pct,
+        "timestamp": row["time"],
+        "all_probs": all_probs,
+    }
+
     return render_template(
         "result.html",
         image_url=image_url,
@@ -188,6 +210,165 @@ def predict_route():
         tumor_detected=tumor_detected,
         tumor_area_pct=area_pct,
         all_probs=all_probs,
+    )
+
+
+@app.route("/download_pdf")
+def download_pdf():
+    data = session.get("last_result")
+    if not data:
+        flash("No result to export. Please classify a scan first.", "error")
+        return redirect(url_for("index"))
+
+    stem      = data["stem"]
+    ext       = data["ext"]
+    prediction    = data["prediction"]
+    confidence    = data["confidence"]
+    tumor_detected = data["tumor_detected"]
+    tumor_area_pct = data.get("tumor_area_pct")
+    timestamp     = data.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    all_probs     = data.get("all_probs", [])
+
+    orig_path  = UPLOAD_FOLDER / f"{stem}{ext}"
+    heat_path  = UPLOAD_FOLDER / f"{stem}_heatmap{ext}"
+    spot_path  = UPLOAD_FOLDER / f"{stem}_spot{ext}"
+    ann_path   = UPLOAD_FOLDER / f"{stem}_annotation{ext}"
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm,
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("title", fontSize=20, textColor=colors.HexColor("#1a237e"),
+                                  spaceAfter=4, alignment=TA_CENTER, fontName="Helvetica-Bold")
+    sub_style   = ParagraphStyle("sub", fontSize=9, textColor=colors.grey,
+                                  spaceAfter=2, alignment=TA_CENTER)
+    h2_style    = ParagraphStyle("h2", fontSize=13, textColor=colors.HexColor("#1a237e"),
+                                  spaceBefore=14, spaceAfter=6, fontName="Helvetica-Bold")
+    body_style  = ParagraphStyle("body", fontSize=9, textColor=colors.HexColor("#333333"),
+                                  spaceAfter=4, leading=14)
+    warn_style  = ParagraphStyle("warn", fontSize=8, textColor=colors.HexColor("#7a5000"),
+                                  backColor=colors.HexColor("#fff8e1"), borderPadding=6,
+                                  spaceAfter=6, leading=12)
+
+    IMG_W = 7.5 * cm
+
+    def add_image(path):
+        if path.exists():
+            try:
+                return RLImage(str(path), width=IMG_W, height=IMG_W)
+            except Exception:
+                pass
+        return Paragraph("<i>Image not available</i>", body_style)
+
+    story = []
+
+    story.append(Paragraph("Brain MRI Tumor Classifier", title_style))
+    story.append(Paragraph("Classification Result Report", sub_style))
+    story.append(Paragraph(f"Generated: {timestamp}", sub_style))
+    story.append(Spacer(1, 0.3*cm))
+    story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#1a237e")))
+    story.append(Spacer(1, 0.3*cm))
+
+    story.append(Paragraph(
+        "⚠️  DISCLAIMER: This report is for educational and research purposes only. "
+        "It is NOT a medical device and must not be used for clinical diagnosis, "
+        "treatment decisions, or any medical purpose. Always consult a qualified healthcare professional.",
+        warn_style,
+    ))
+
+    story.append(Paragraph("Classification Result", h2_style))
+    detection_text = "POSITIVE — Tumor Detected" if tumor_detected else "NEGATIVE — No Tumor Detected"
+    detection_color = colors.HexColor("#c62828") if tumor_detected else colors.HexColor("#2e7d32")
+    result_data = [
+        ["Predicted Class", prediction],
+        ["Confidence", f"{confidence}%"],
+        ["Tumor Detection", detection_text],
+        ["Tumor Area", f"{tumor_area_pct}% of scan" if tumor_area_pct is not None else "N/A"],
+        ["Scan Timestamp", timestamp],
+    ]
+    result_table = Table(result_data, colWidths=[5*cm, 11.5*cm])
+    result_table.setStyle(TableStyle([
+        ("BACKGROUND",   (0, 0), (0, -1), colors.HexColor("#e8eaf6")),
+        ("TEXTCOLOR",    (0, 0), (0, -1), colors.HexColor("#1a237e")),
+        ("FONTNAME",     (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTSIZE",     (0, 0), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f7f8fc")]),
+        ("GRID",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+        ("TOPPADDING",   (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 8),
+        ("TEXTCOLOR",    (1, 2), (1, 2), detection_color),
+        ("FONTNAME",     (1, 2), (1, 2), "Helvetica-Bold"),
+    ]))
+    story.append(result_table)
+
+    if all_probs:
+        story.append(Paragraph("Class Probabilities", h2_style))
+        prob_data = [["Class", "Probability"]]
+        for p in all_probs:
+            prob_data.append([p["label"], f"{p['prob']}%"])
+        prob_table = Table(prob_data, colWidths=[9*cm, 7.5*cm])
+        prob_table.setStyle(TableStyle([
+            ("BACKGROUND",   (0, 0), (-1, 0), colors.HexColor("#1a237e")),
+            ("TEXTCOLOR",    (0, 0), (-1, 0), colors.white),
+            ("FONTNAME",     (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE",     (0, 0), (-1, -1), 9),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f7f8fc")]),
+            ("GRID",         (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
+            ("TOPPADDING",   (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING",(0, 0), (-1, -1), 6),
+            ("LEFTPADDING",  (0, 0), (-1, -1), 8),
+        ]))
+        story.append(prob_table)
+
+    story.append(Paragraph("Scan Images", h2_style))
+    img_row = []
+    img_labels = []
+    for path, label in [
+        (orig_path, "Original MRI"),
+        (spot_path, "Tumor Region Overlay"),
+        (heat_path, "Saliency Heatmap"),
+        (ann_path,  "Annotation"),
+    ]:
+        img_row.append(add_image(path))
+        img_labels.append(Paragraph(label, ParagraphStyle("lbl", fontSize=8,
+                          alignment=TA_CENTER, textColor=colors.HexColor("#555555"))))
+
+    img_table = Table(
+        [img_row, img_labels],
+        colWidths=[4*cm, 4*cm, 4*cm, 4*cm],
+        hAlign="CENTER",
+    )
+    img_table.setStyle(TableStyle([
+        ("ALIGN",        (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",       (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING",   (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
+    ]))
+    story.append(img_table)
+
+    story.append(Spacer(1, 0.5*cm))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.lightgrey))
+    story.append(Spacer(1, 0.2*cm))
+    story.append(Paragraph(
+        "This document was generated by the Brain MRI Tumor Classifier — "
+        "an educational tool built with PyTorch (ResNet-18) and Flask. "
+        "Not validated for clinical use.",
+        ParagraphStyle("footer", fontSize=7, textColor=colors.grey, alignment=TA_CENTER),
+    ))
+
+    doc.build(story)
+    buf.seek(0)
+
+    filename = f"brain_mri_report_{stem[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return Response(
+        buf.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
