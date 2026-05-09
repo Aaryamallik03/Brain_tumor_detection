@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+static/uploads/
+#model/*.pth
+#*.metrics.json
+
+monitoring.db
+model/brain_tumor_resnet50.pth
