@@ -5,3 +5,7 @@ torchvision>=0.15.0
 Pillow>=9.5.0
 gunicorn
 reportlab>=4.0
+scikit-learn>=1.3
+matplotlib>=3.7
+seaborn>=0.13
+numpy>=1.24
