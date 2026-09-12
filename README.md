@@ -3,6 +3,8 @@
 A local web app (+ CLI) that classifies brain MRI scans into four categories using a
 ResNet-50 transfer-learning model built with PyTorch.
 
+🔗 **Live Demo:** [neuroscanai-488945240645.us-central1.run.app](https://neuroscanai-488945240645.us-central1.run.app/)
+
 > ⚠️ **Educational & Research Use Only.**
 > This tool is **not** a medical device and must **not** be used for clinical diagnosis,
 > treatment decisions, or any medical purpose whatsoever.
