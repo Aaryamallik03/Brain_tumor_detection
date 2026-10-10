@@ -233,3 +233,4 @@ This software is provided for **educational and research purposes only**.
 - It **must not** be used to diagnose, treat, or make decisions about any medical condition.
 - Predictions may be incorrect; MRI interpretation requires specialist training.
 - Always consult a qualified and licensed healthcare professional for medical advice.
+- Feel free to give ideas on making this better.
