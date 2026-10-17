@@ -1,236 +1,221 @@
 # 🧠 Brain MRI Tumor Classifier
 
-A local web app (+ CLI) that classifies brain MRI scans into four categories using a
-ResNet-50 transfer-learning model built with PyTorch.
+### Deep Learning-Based Multi-Class MRI Image Classification Using ResNet-50 Transfer Learning
 
-🔗 **Live Demo:** [neuroscanai-488945240645.us-central1.run.app](https://neuroscanai-488945240645.us-central1.run.app/)
+An educational deep learning project that classifies brain MRI images into four dataset categories using a **ResNet-50 model, PyTorch, and Flask**. The application provides an interface for image uploads, prediction results, prediction history, and exploratory saliency visualizations.
 
-> ⚠️ **Educational & Research Use Only.**
-> This tool is **not** a medical device and must **not** be used for clinical diagnosis,
-> treatment decisions, or any medical purpose whatsoever.
-> Always consult a qualified healthcare professional.
+> **Disclaimer:** This project is intended for educational and research demonstrations only. It is not a medical device and must not be used for diagnosis, treatment decisions, or ruling out medical conditions.
 
----
+## 📸 Screenshots
 
-## Classes
 
-| Icon | Class | Description |
-|------|-------|-------------|
-| 🔴 | **Glioma** | Tumor arising from glial cells |
-| 🟠 | **Meningioma** | Tumor on the brain/spine membranes |
-| 🟢 | **No Tumor** | No tumor detected |
-| 🟣 | **Pituitary Tumor** | Tumor in the pituitary gland |
+### Home Page
+<img width="1137" height="651" alt="image" src="https://github.com/user-attachments/assets/00ed52cc-2356-489a-ac32-37eed752abf5" />
 
----
 
-## Project Structure
+### MRI Image Upload
+<img width="570" height="268" alt="image" src="https://github.com/user-attachments/assets/315cd369-67c8-4cb5-bb62-b20586791784" />
+<img width="612" height="266" alt="image" src="https://github.com/user-attachments/assets/ee071cf5-0d6b-498e-92f1-54fb5f53ff0c" />
+<img width="609" height="293" alt="image" src="https://github.com/user-attachments/assets/1c68df02-5a66-461f-a0a3-912af1426e71" />
 
+
+### Prediction Results
+<img width="569" height="311" alt="image" src="https://github.com/user-attachments/assets/67a54c65-d044-43b1-98d6-f5ec49a8a68d" />
+
+
+### Monitoring Dashboard
+<img width="289" height="404" alt="image" src="https://github.com/user-attachments/assets/93a8703f-4727-4df3-8dce-a79b80fe691f" />
+
+
+## ✨ Features
+
+- **Four-class classification:** Predicts one of four dataset labels: Glioma, Meningioma, Pituitary Tumor, or No Tumor.
+- **Transfer learning:** Uses an ImageNet-pretrained ResNet-50 backbone adapted for four output classes.
+- **MRI image preprocessing:** Resizes images to 224 × 224 pixels, converts them to RGB, and applies ImageNet normalization.
+- **Prediction interface:** Upload an image and view the predicted class and associated confidence scores.
+- **Saliency visualization:** Generates gradient-based visualizations to explore which image regions influence model predictions.
+- **Prediction monitoring:** Provides a dashboard and prediction history for inspection.
+- **Local data storage:** Uses SQLite for prediction history, with CSV export described in the project report.
+- **Command-line workflow:** Supports an alternative prediction workflow outside the web interface.
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|---|---|
+| Programming Language | Python |
+| Deep Learning Framework | PyTorch |
+| Computer Vision | Torchvision, Pillow |
+| Model Architecture | ResNet-50 |
+| Web Framework | Flask |
+| Database | SQLite |
+| Data Visualization | Matplotlib |
+| Machine Learning Utilities | scikit-learn |
+| Report Generation | ReportLab |
+
+## 🧠 Model Architecture
+
+The classifier uses **ResNet-50**, initialized with ImageNet-pretrained weights. Its original classification layer is replaced with a fully connected layer that maps the backbone's 2,048-dimensional feature representation to four output classes.
+
+### Model Workflow
+
+1. Upload a brain MRI image.
+2. Convert the image to RGB and resize it to 224 × 224 pixels.
+3. Normalize the image using ImageNet statistics.
+4. Pass the preprocessed image through the ResNet-50 model.
+5. Obtain scores for the four dataset classes.
+6. Display the predicted class and confidence values.
+7. Generate an exploratory saliency visualization when supported by the application.
+
+```text
+Brain MRI Image
+       |
+       v
+Image Preprocessing
+Resize + RGB + Normalization
+       |
+       v
+ResNet-50 Backbone
+       |
+       v
+Four-Class Output Layer
+       |
+       v
+Prediction and Confidence Scores
+       |
+       v
+Web Interface and Prediction History
 ```
-brain_mri_classifier/
-├── app.py                  # Flask web app
-├── classifier.py           # Model loading + inference (import this)
-├── train.py                # Train ResNet-50 from dataset
-├── predict_cli.py          # Command-line inference tool
-├── generate_samples.py     # Creates synthetic test images
-├── requirements.txt
-├── model/
-│   └── PUT_MODEL_HERE.txt  # ← place your .pth file here
-├── sample_images/          # Created by generate_samples.py
-├── static/
-│   ├── css/style.css
-│   ├── js/upload.js
-│   └── uploads/            # Temporary uploaded images
-├── monitoring.db           # SQLite monitoring history (created at runtime)
-└── templates/
-    ├── index.html
-    ├── result.html
-    └── monitor.html
-```
 
----
+## 📂 Dataset
 
-## Setup
+The project report identifies the [Brain Tumor MRI Dataset by Masoud Nickparvar on Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset).
 
-### 1. Clone / download this project
+The report records the following dataset distribution:
+
+| Class | Training Folder | Testing Folder | Total |
+|---|---:|---:|---:|
+| Glioma | 1,321 | 300 | 1,621 |
+| Meningioma | 1,339 | 306 | 1,645 |
+| Pituitary Tumor | 1,457 | 300 | 1,757 |
+| No Tumor | 1,595 | 405 | 2,000 |
+| **Total** | **5,712** | **1,311** | **7,023** |
+
+These counts are transcribed from the project report and should be confirmed against the exact dataset version used.
+
+## ⚙️ Installation and Setup
+
+### Prerequisites
+
+- Python installed
+- Git
+- pip
+- The project source code and trained model checkpoint
+
+### 1. Clone the repository
 
 ```bash
-cd brain_mri_classifier
+git clone https://github.com/Aaryamallik03/Brain_tumor_detection.git
+cd Brain_tumor_detection
 ```
 
-### 2. Create and activate a virtual environment (recommended)
+### 2. Create a virtual environment
+
+**Windows:**
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+**macOS/Linux:**
 
 ```bash
-python -m venv venv
-# Linux / macOS
-source venv/bin/activate
-# Windows
-venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
 ### 3. Install dependencies
+
+If the repository contains a `requirements.txt` file:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> For GPU support install the CUDA-compatible PyTorch build from https://pytorch.org
+If dependencies are not listed, install the packages required by the actual application and model implementation.
 
-### 4. Train your model (recommended)
+### 4. Verify the configuration
 
-Download/extract the Kaggle dataset so the folder looks like:
+Ensure that the trained model checkpoint is available at the path expected by the inference code. Check that the required templates, static assets, and any other application files are present.
 
-```
-Brain-Tumor-MRI-Dataset/
-├── Training/
-│   ├── glioma/
-│   ├── meningioma/
-│   ├── notumor/
-│   └── pituitary/
-└── Testing/
-    ├── glioma/
-    ├── meningioma/
-    ├── notumor/
-    └── pituitary/
-```
+### 5. Run the application
 
-Train and save weights:
-
-```bash
-python train.py --data-root path/to/Brain-Tumor-MRI-Dataset --epochs 12 --batch-size 16
-```
-
-Default output path:
-
-```
-model/brain_tumor_resnet50.pth
-```
-
-### 5. Add your model weights (alternative)
-
-Place your trained ResNet-50 checkpoint in the `model/` folder and rename it:
-
-```
-model/brain_tumor_resnet50.pth
-```
-
-See `model/PUT_MODEL_HERE.txt` for architecture details and training tips.
-
-**Training the model yourself:**
-- Dataset: [Brain Tumor MRI Dataset on Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
-- Use the provided training notebook / script (ResNet-50 fine-tuning, 4 classes)
-- Save the state dict with `torch.save(model.state_dict(), "brain_tumor_resnet50.pth")`
-
----
-
-## Running the Web App
+If `app.py` is the Flask application entry point:
 
 ```bash
 python app.py
 ```
 
-Then open **http://localhost:5000** in your browser.
+Open the local URL printed by Flask in your browser, typically `http://127.0.0.1:5000`.
 
-- Upload a JPG/PNG/BMP/TIFF brain MRI image (≤ 16 MB)
-- Click **Classify Scan**
-- See the predicted class and probability breakdown
-- See tumor-region highlight and monitoring dashboard at `/monitor`
+> The commands above assume the repository's entry point and directory structure match the project report. Adjust them if the current repository uses different paths or startup settings.
 
-Health endpoint:
+## 📊 Evaluation Status
 
-```bash
-GET /health
-```
+The original project report mentions an accuracy of approximately 97%. However, a review of the training script identified a potential evaluation issue: the default stratified workflow combines images from the original Training and Testing folders before creating a new split.
 
-Returns `200` when model is loaded, `503` when model is missing.
+Consequently, the reported figure **is not presented as verified held-out test accuracy**. Final performance metrics need to be regenerated using a corrected evaluation protocol.
 
----
+Recommended evaluation metrics include:
 
-## Monitoring & Persistence
+- Test accuracy
+- Macro precision, recall, and F1-score
+- Per-class precision, recall, and F1-score
+- Confusion matrix
 
-- Monitoring records are saved in `monitoring.db` (SQLite).
-- Dashboard: `http://localhost:5000/monitor`
-- CSV export: `http://localhost:5000/monitor.csv`
-- If deploying statelessly (e.g. free cloud dynos), SQLite data may reset on restart unless a persistent disk is attached.
+The original Testing folder should remain untouched during training, validation, checkpoint selection, and other model-development decisions.
 
----
+## 🔍 Explainability and Limitations
 
-## Deployment (Render)
+The application includes gradient-based saliency visualizations intended to explore image regions that influence a model score.
 
-Use the following settings:
+These visualizations are exploratory. They are not validated tumor segmentation masks, and any bounding-box-style overlay derived from a saliency map must not be interpreted as a confirmed anatomical tumor boundary.
 
-- Build command: `pip install -r requirements.txt`
-- Start command: `gunicorn app:app`
+Other limitations include:
 
-After deploy:
-- Check app health at `/health`
-- Ensure model file exists in `/model` (`brain_tumor_resnet18_fast.pth` or `brain_tumor_resnet50.pth`)
+- The dataset may not represent MRI scans from different hospitals, scanners, or patient populations.
+- The model predicts dataset labels rather than a complete clinical diagnosis.
+- Confidence scores should not be interpreted as clinical certainty.
+- Duplicate or near-duplicate images may affect evaluation results.
+- Reliable generalization requires a corrected evaluation protocol and, ideally, external validation.
 
-## Command-Line Usage
+## 🚀 Future Improvements
 
-```bash
-# Basic usage
-python predict_cli.py sample_images/glioma_sample.jpg
+- Correct the training, validation, and test partitioning strategy.
+- Regenerate final evaluation metrics and the confusion matrix.
+- Add reproducible experiment configurations, random seeds, and training logs.
+- Explore Grad-CAM for model visualization.
+- Investigate calibrated confidence estimates.
+- Evaluate the model on an independent dataset.
+- Explore validated segmentation methods if suitable labelled data are available.
 
-# Specify a custom model path
-python predict_cli.py path/to/scan.jpg --model path/to/weights.pth
-```
+## 🎓 Project Information
 
-Example output:
+**Project:** Brain MRI Tumor Classifier  
+**Institution:** National Institute of Technology Meghalaya  
+**Department:** Computer Science and Engineering  
+**Author:** Aarya Mallik  
+**Supervisor:** Dr. Ngangbam Herojit Singh
 
-```
-🧠  Brain MRI Tumor Classifier
-────────────────────────────────────────
-  Model : model/brain_tumor_resnet50.pth
-  Image : sample_images/glioma_sample.jpg
+## 📚 References
 
-  Result     : 🔴  Glioma
-  Confidence : 94.2%
-  Info       : A tumor arising from glial cells in the brain or spine.
-
-  All class probabilities:
-    🔴  Glioma             ████████████████░░░░   94.2% ◀
-    🟠  Meningioma         ░░░░░░░░░░░░░░░░░░░░    3.1%
-    🟣  Pituitary Tumor    ░░░░░░░░░░░░░░░░░░░░    1.8%
-    🟢  No Tumor           ░░░░░░░░░░░░░░░░░░░░    0.9%
-```
+1. He, K., Zhang, X., Ren, S., and Sun, J. *Deep Residual Learning for Image Recognition.* CVPR, 2016. [DOI](https://doi.org/10.1109/CVPR.2016.90)
+2. Simonyan, K., Vedaldi, A., and Zisserman, A. *Deep Inside Convolutional Networks: Visualising Image Classification Models and Saliency Maps.* [arXiv](https://arxiv.org/abs/1312.6034)
+3. Selvaraju, R. R., et al. *Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization.* ICCV, 2017.
+4. Nickparvar, M. *Brain Tumor MRI Dataset.* [Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
+5. [PyTorch ResNet-50 Documentation](https://pytorch.org/vision/stable/models/generated/torchvision.models.resnet50.html)
+6. [Flask Documentation](https://flask.palletsprojects.com/)
 
 ---
 
-## Generating Synthetic Test Images
-
-If you want to test the upload pipeline before you have real MRI data:
-
-```bash
-python generate_samples.py
-```
-
-This creates 4 simple synthetic images in `sample_images/`. They are **not real
-MRI scans** — just placeholder images to verify the app is working end-to-end.
-
----
-
-## Using `classifier.py` as a Library
-
-```python
-from pathlib import Path
-from classifier import load_model, predict
-
-model, err = load_model(Path("model/brain_tumor_resnet50.pth"))
-if err:
-    print("Error:", err)
-else:
-    pred, conf, probs, err = predict(model, Path("scan.jpg"))
-    print(f"{pred}  ({conf:.1f}%)")
-```
-
----
-
-## Disclaimer
-
-This software is provided for **educational and research purposes only**.
-
-- It has **not** been validated for clinical use.
-- It **must not** be used to diagnose, treat, or make decisions about any medical condition.
-- Predictions may be incorrect; MRI interpretation requires specialist training.
-- Always consult a qualified and licensed healthcare professional for medical advice.
-- Feel free to give ideas on making this better. 
+*Built as an educational deep learning project exploring medical image classification and web application integration.*
